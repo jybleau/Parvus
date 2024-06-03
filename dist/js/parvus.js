@@ -489,6 +489,7 @@
      *
      */
     const close = () => {
+      var _history$state;
       if (!isOpen()) {
         throw new Error('Ups, I\'m already closed.');
       }
@@ -496,7 +497,7 @@
       const THUMBNAIL = GROUPS[activeGroup].triggerElements[currentIndex];
       unbindEvents();
       clearDrag();
-      if (history.state?.parvus === 'close') {
+      if (((_history$state = history.state) === null || _history$state === void 0 ? void 0 : _history$state.parvus) === 'close') {
         history.back();
       }
       const NON_LIGHTBOX_ELEMENTS = document.querySelectorAll('.parvus-hidden');

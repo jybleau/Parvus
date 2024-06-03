@@ -76,7 +76,8 @@ if (process.env.BUILDJS) {
             corejs: 3.15,
             useBuiltIns: 'entry'
           }]
-        ]
+        ],
+        plugins: ["@babel/plugin-transform-optional-chaining"]
       }),
       license({
         banner: {
