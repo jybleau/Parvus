@@ -2,7 +2,7 @@
  * Parvus
  *
  * @author Benjamin de Oostfrees
- * @version 2.5.3
+ * @version 2.6.0
  * @url https://github.com/deoostfrees/parvus
  *
  * MIT license
@@ -34,6 +34,33 @@
    */
   const getScrollbarWidth = () => {
     return BROWSER_WINDOW.innerWidth - document.documentElement.clientWidth;
+  };
+
+  /**
+   * Add zoom indicator to element
+   *
+   * @param {HTMLElement} el - The element to add the zoom indicator to
+   * @param {Object} config - Options object
+   */
+  const addZoomIndicator = (el, config) => {
+    if (el.querySelector('img') && el.querySelector('.parvus-zoom__indicator') === null) {
+      const LIGHTBOX_INDICATOR_ICON = document.createElement('div');
+      LIGHTBOX_INDICATOR_ICON.className = 'parvus-zoom__indicator';
+      LIGHTBOX_INDICATOR_ICON.innerHTML = config.lightboxIndicatorIcon;
+      el.appendChild(LIGHTBOX_INDICATOR_ICON);
+    }
+  };
+
+  /**
+   * Remove zoom indicator for element
+   *
+   * @param {HTMLElement} el - The element to remove the zoom indicator to
+   */
+  const removeZoomIndicator = el => {
+    if (el.querySelector('img') && el.querySelector('.parvus-zoom__indicator') !== null) {
+      const LIGHTBOX_INDICATOR_ICON = el.querySelector('.parvus-zoom__indicator');
+      el.removeChild(LIGHTBOX_INDICATOR_ICON);
+    }
   };
 
   var en = {
@@ -135,7 +162,7 @@
      * https://developer.mozilla.org/en-US/docs/Web/API/MediaQueryList
      *
      */
-    const MOTIONQUERY = window.matchMedia('(prefers-reduced-motion)');
+    const MOTIONQUERY = BROWSER_WINDOW.matchMedia('(prefers-reduced-motion)');
     const reducedMotionCheck = () => {
       if (MOTIONQUERY.matches) {
         isReducedMotion = true;
@@ -145,9 +172,6 @@
         transitionDuration = config.transitionDuration;
       }
     };
-
-    // Check for any OS level changes to the preference
-    MOTIONQUERY.addEventListener('change', reducedMotionCheck);
 
     /**
      * Get the group from element
@@ -168,21 +192,6 @@
     };
 
     /**
-     * Add zoom indicator to element
-     *
-     * @param {HTMLElement} el - The element to add the zoom indicator to
-     */
-    const addZoomIndicator = el => {
-      if (el.querySelector('img')) {
-        const LIGHTBOX_INDICATOR_ICON = document.createElement('div');
-        el.classList.add('parvus-zoom');
-        LIGHTBOX_INDICATOR_ICON.className = 'parvus-zoom__indicator';
-        LIGHTBOX_INDICATOR_ICON.innerHTML = config.lightboxIndicatorIcon;
-        el.appendChild(LIGHTBOX_INDICATOR_ICON);
-      }
-    };
-
-    /**
      * Add an element
      *
      * @param {HTMLElement} el - The element to be added
@@ -192,7 +201,7 @@
         return;
       }
       if (!(el.tagName === 'A' && el.hasAttribute('href') || el.tagName === 'BUTTON' && el.hasAttribute('data-target'))) {
-        throw new Error('Use a link with the \'href\' attribute or a button with the \'data-target\' attribute. Both attributes must have a path to the image file.');
+        throw new Error('Use a link with the \'href\' attribute or a button with the \'data-target\' attribute. Both attributes must contain a path to the image file.');
       }
       newGroup = getGroup(el);
       if (!GROUPS[newGroup]) {
@@ -202,7 +211,7 @@
         throw new Error('Ups, element already added.');
       }
       GROUPS[newGroup].triggerElements.push(el);
-      addZoomIndicator(el);
+      addZoomIndicator(el, config);
       el.classList.add('parvus-trigger');
       el.addEventListener('click', triggerParvus);
       if (isOpen() && newGroup === activeGroup) {
@@ -236,12 +245,8 @@
       GROUPS[EL_GROUP].triggerElements.splice(EL_INDEX, 1);
       GROUPS[EL_GROUP].sliderElements.splice(EL_INDEX, 1);
 
-      // Remove lightbox indicator icon if necessary
-      if (el.classList.contains('parvus-zoom')) {
-        const LIGHTBOX_INDICATOR_ICON = el.querySelector('.parvus-zoom__indicator');
-        el.classList.remove('parvus-zoom');
-        el.removeChild(LIGHTBOX_INDICATOR_ICON);
-      }
+      // Remove lightbox indicator icon
+      removeZoomIndicator(el);
       if (isOpen() && EL_GROUP === activeGroup) {
         updateAttributes();
         updateSliderNavigationStatus();
@@ -584,10 +589,11 @@
      * Add caption to the container element
      *
      * @param {HTMLElement} containerEl - The container element to which the caption will be added
+     * @param {HTMLElement} imageEl - The image the caption is linked to
      * @param {HTMLElement} el - The trigger element associated with the caption
      * @param {Number} index - The index of the caption
      */
-    const addCaption = (containerEl, el, index) => {
+    const addCaption = (containerEl, imageEl, el, index) => {
       const CAPTION_CONTAINER = document.createElement('div');
       let captionData = null;
       CAPTION_CONTAINER.className = 'parvus__caption';
@@ -607,10 +613,10 @@
       }
       if (captionData !== null) {
         const CAPTION_ID = `parvus__caption-${index}`;
-        CAPTION_CONTAINER.setAttribute('aria-labelledby', CAPTION_ID);
         CAPTION_CONTAINER.id = CAPTION_ID;
         CAPTION_CONTAINER.innerHTML = `<p>${captionData}</p>`;
         containerEl.appendChild(CAPTION_CONTAINER);
+        imageEl.setAttribute('aria-describedby', CAPTION_ID);
       }
     };
     const createImage = (el, index, callback) => {
@@ -649,7 +655,7 @@
 
         // Add caption if available
         if (config.captions) {
-          addCaption(CONTENT_CONTAINER_EL, el, index);
+          addCaption(CONTENT_CONTAINER_EL, IMAGE, el, index);
         }
         contentElements[index] = loadedImage;
 
@@ -723,15 +729,15 @@
             // Animate the difference reversal on the next tick
             requestAnimationFrame(() => {
               IMAGE.style.transform = '';
-              IMAGE.style.opacity = 1;
+              IMAGE.style.opacity = '';
               IMAGE.style.transition = `transform ${transitionDuration}ms ${config.transitionTimingFunction}, opacity ${transitionDuration / 2}ms ${config.transitionTimingFunction}`;
             });
           });
         } else {
-          IMAGE.style.opacity = 1;
+          IMAGE.style.opacity = '';
         }
       } else {
-        IMAGE.style.opacity = 1;
+        IMAGE.style.opacity = '';
       }
     };
     const select = index => {
@@ -994,15 +1000,15 @@
       if (contentEl.tagName !== 'IMG') {
         return;
       }
-      const COMPUTED_STYLE = getComputedStyle(slideEl);
+      const SLIDE_EL_STYLES = getComputedStyle(slideEl);
       const CAPTION_EL = slideEl.querySelector('.parvus__caption');
       const CAPTION_REC = CAPTION_EL ? CAPTION_EL.getBoundingClientRect().height : 0;
       const SRC_HEIGHT = contentEl.getAttribute('height');
       const SRC_WIDTH = contentEl.getAttribute('width');
       let maxHeight = slideEl.offsetHeight;
       let maxWidth = slideEl.offsetWidth;
-      maxHeight -= parseFloat(COMPUTED_STYLE.paddingTop) + parseFloat(COMPUTED_STYLE.paddingBottom) + parseFloat(CAPTION_REC);
-      maxWidth -= parseFloat(COMPUTED_STYLE.paddingLeft) + parseFloat(COMPUTED_STYLE.paddingRight);
+      maxHeight -= parseFloat(SLIDE_EL_STYLES.paddingTop) + parseFloat(SLIDE_EL_STYLES.paddingBottom) + parseFloat(CAPTION_REC);
+      maxWidth -= parseFloat(SLIDE_EL_STYLES.paddingLeft) + parseFloat(SLIDE_EL_STYLES.paddingRight);
       const RATIO = Math.min(maxWidth / SRC_WIDTH || 0, maxHeight / SRC_HEIGHT);
       const NEW_WIDTH = SRC_WIDTH * RATIO || 0;
       const NEW_HEIGHT = SRC_HEIGHT * RATIO || 0;
@@ -1114,6 +1120,8 @@
      * @param {Event} event - The mousedown event object
      */
     const mousedownHandler = event => {
+      event.preventDefault();
+      event.stopPropagation();
       isDraggingX = false;
       isDraggingY = false;
       pointerDown = true;
@@ -1128,7 +1136,6 @@
       } = GROUPS[activeGroup];
       slider.classList.add('parvus__slider--is-dragging');
       slider.style.willChange = 'transform';
-      event.stopPropagation();
       lightboxOverlayOpacity = getComputedStyle(lightboxOverlay).opacity;
     };
 
@@ -1141,6 +1148,7 @@
      * @param {Event} event - The mousemove event object
      */
     const mousemoveHandler = event => {
+      event.preventDefault();
       if (pointerDown) {
         const {
           pageX,
@@ -1150,7 +1158,6 @@
         drag.endY = pageY;
         doSwipe();
       }
-      event.preventDefault();
     };
 
     /**
@@ -1159,7 +1166,8 @@
      * This function is called when a mouse button is released.
      * It handles the necessary actions and logic related to the mouseup event.
      */
-    const mouseupHandler = () => {
+    const mouseupHandler = event => {
+      event.stopPropagation();
       pointerDown = false;
       const {
         slider
@@ -1181,6 +1189,7 @@
      * @param {Event} event - The touchstart event object
      */
     const touchstartHandler = event => {
+      event.stopPropagation();
       isDraggingX = false;
       isDraggingY = false;
       const {
@@ -1194,8 +1203,7 @@
       } = GROUPS[activeGroup];
       slider.classList.add('parvus__slider--is-dragging');
       slider.style.willChange = 'transform';
-      lightboxOverlayOpacity = getComputedStyle(lightboxOverlay).getPropertyValue('opacity');
-      event.stopPropagation();
+      lightboxOverlayOpacity = getComputedStyle(lightboxOverlay).opacity;
     };
 
     /**
@@ -1207,6 +1215,8 @@
      * @param {Event} event - The touchmove event object
      */
     const touchmoveHandler = event => {
+      event.preventDefault();
+      event.stopPropagation();
       const {
         clientX,
         clientY
@@ -1214,7 +1224,6 @@
       drag.endX = parseInt(clientX, 10);
       drag.endY = parseInt(clientY, 10);
       doSwipe();
-      event.preventDefault();
     };
 
     /**
@@ -1223,7 +1232,8 @@
      * This function is called when the touch interaction ends. It handles the necessary
      * actions and logic related to the touchend event.
      */
-    const touchendHandler = () => {
+    const touchendHandler = event => {
+      event.stopPropagation();
       const {
         slider
       } = GROUPS[activeGroup];
@@ -1279,6 +1289,9 @@
       // Popstate event
       BROWSER_WINDOW.addEventListener('popstate', close);
 
+      // Check for any OS level changes to the prefers reduced motion preference
+      MOTIONQUERY.addEventListener('change', reducedMotionCheck);
+
       // Click event
       lightbox.addEventListener('click', clickHandler);
 
@@ -1307,6 +1320,9 @@
 
       // Popstate event
       BROWSER_WINDOW.removeEventListener('popstate', close);
+
+      // Check for any OS level changes to the prefers reduced motion preference
+      MOTIONQUERY.removeEventListener('change', reducedMotionCheck);
 
       // Click event
       lightbox.removeEventListener('click', clickHandler);
